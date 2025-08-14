@@ -15,11 +15,12 @@ let selectedItems = new Set();
 app.get("/items", (req, res) => {
   const { page = 1, search = "" } = req.query;
   const limit = 20;
-  const offset = (parseInt(page) - 1) * limit;
+  const offset = (parseInt(page, 10) - 1) * limit;
 
   let filteredItems = itemOrder;
   if (search) {
-    filteredItems = itemOrder.filter((id) => id.toString().includes(search));
+    const s = String(search);
+    filteredItems = itemOrder.filter((id) => id.toString().includes(s));
   }
 
   const items = filteredItems.slice(offset, offset + limit);
@@ -37,22 +38,36 @@ app.get("/selected", (req, res) => {
 });
 
 app.post("/selected", (req, res) => {
-  selectedItems = new Set(req.body.selected || []);
+  const arr = Array.isArray(req.body.selected) ? req.body.selected : [];
+  selectedItems = new Set(arr.map((n) => Number(n)).filter(Number.isFinite));
   res.json({ ok: true });
 });
 
+// Перестановка по ГЛОБАЛЬНЫМ id. Вставляем ПОСЛЕ target.
 app.post("/reorder", (req, res) => {
-  const { fromIndex, toIndex } = req.body;
+  const { fromId, toId } = req.body;
 
   if (
-    fromIndex >= 0 &&
-    toIndex >= 0 &&
-    fromIndex < itemOrder.length &&
-    toIndex < itemOrder.length
+    typeof fromId !== "number" ||
+    typeof toId !== "number" ||
+    fromId === toId
   ) {
-    const item = itemOrder.splice(fromIndex, 1)[0];
-    itemOrder.splice(toIndex, 0, item);
+    return res.status(400).json({ error: "Invalid IDs" });
   }
+
+  const fromIndex = itemOrder.indexOf(fromId);
+  const toIndex = itemOrder.indexOf(toId);
+
+  if (fromIndex === -1 || toIndex === -1) {
+    return res.status(400).json({ error: "IDs not found" });
+  }
+
+  // Снимаем элемент
+  const [moved] = itemOrder.splice(fromIndex, 1);
+
+  // Хотим поставить ПОСЛЕ таргета с учётом сдвига после удаления
+  const insertIndex = fromIndex < toIndex ? toIndex : toIndex + 1;
+  itemOrder.splice(insertIndex, 0, moved);
 
   res.json({ ok: true });
 });
