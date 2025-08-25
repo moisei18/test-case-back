@@ -19,7 +19,7 @@ app.get("/items", (req, res) => {
 
   let filteredItems = itemOrder;
   if (search) {
-    const s = String(search);
+    const s = String(search).trim();
     filteredItems = itemOrder.filter((id) => id.toString().includes(s));
   }
 
@@ -43,9 +43,8 @@ app.post("/selected", (req, res) => {
   res.json({ ok: true });
 });
 
-// Перестановка по ГЛОБАЛЬНЫМ id. Вставляем ПОСЛЕ target.
 app.post("/reorder", (req, res) => {
-  const { fromId, toId } = req.body;
+  const { fromId, toId, position = "after" } = req.body;
 
   if (
     typeof fromId !== "number" ||
@@ -62,11 +61,15 @@ app.post("/reorder", (req, res) => {
     return res.status(400).json({ error: "IDs not found" });
   }
 
-  // Снимаем элемент
   const [moved] = itemOrder.splice(fromIndex, 1);
 
-  // Хотим поставить ПОСЛЕ таргета с учётом сдвига после удаления
-  const insertIndex = fromIndex < toIndex ? toIndex : toIndex + 1;
+  let insertIndex;
+  if (position === "before") {
+    insertIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
+  } else {
+    insertIndex = fromIndex < toIndex ? toIndex : toIndex + 1;
+  }
+
   itemOrder.splice(insertIndex, 0, moved);
 
   res.json({ ok: true });
